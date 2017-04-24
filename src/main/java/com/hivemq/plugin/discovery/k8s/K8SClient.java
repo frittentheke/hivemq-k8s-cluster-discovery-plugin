@@ -6,9 +6,11 @@ import io.fabric8.kubernetes.client.DefaultKubernetesClient;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import java.util.ArrayList;
 import java.util.List;
+import org.apache.commons.validator.routines.InetAddressValidator;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import sun.net.util.IPAddressUtil;
 
 /** Simple fabric8 kubernetes client to query for sibling pod info
  *
@@ -28,6 +30,7 @@ public class K8SClient{
     /**
     * Here we query the K8S api for pods (within out namespace) with a certain label and value of that label)
     * Of those pods we return their name and IP addresses
+    * @param 
     */
     public List<String> getSiblingPodIPsByLabelAndValue(String label, String value){
         List<String> PodIPs = new ArrayList();
@@ -39,10 +42,18 @@ public class K8SClient{
         
         for (Pod pod : siblings.getItems()) {
             String name = pod.getMetadata().getName();
+            String phase = pod.getStatus().getPhase();
             String ip = pod.getStatus().getPodIP();
-            Log.debug("Found a sibling pod with name {} and IP {}", name, ip);
+            Log.debug("Found a sibling pod with name {} and IP {} currently in phase {}", name, ip, phase);
             
-            PodIPs.add(ip);
+            // Skip pods without valid IP address or which are not in running state
+            if (InetAddressValidator.getInstance().isValid(ip) && phase.equals("Running")){
+                Log.info("Adding sibling pod {}({}) to list of cluster nodes", name, ip);
+                PodIPs.add(ip);
+            }
+            
+            
+            
         }
         
         return PodIPs;
